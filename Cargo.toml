@@ -1,0 +1,19 @@
+[package]
+name = "purpleair"
+description = "A library for reading PurpleAir sensor data"
+documentation = "https://docs.rs/purpleair"
+repository = "https://github.com/domagalski/purpleair-rs"
+homepage = "https://github.com/domagalski/purpleair-rs"
+readme = "README.md"
+license = "MIT"
+version = "0.1.0"
+authors = ["Rachel Domagalski"]
+edition = "2018"
+
+[dependencies]
+chrono = "0.4"
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+strum = "0.21"
+strum_macros = "0.21"
