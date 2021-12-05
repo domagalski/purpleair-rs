@@ -1,3 +1,10 @@
+//! PurpleAir sensor access via the LAN.
+//!
+//! PurpleAir sensors that are on a local network can be polled for data. This data updates at about
+//! ten seconds or so for the "live" measurement and two minutes for the averaged measurement.
+//! Because the sensor is on a LAN, it doesn't have any of the rate-limiting that the web sensors
+//! have.
+
 use std::fmt::Debug;
 
 use chrono::{DateTime, Utc};
@@ -7,6 +14,7 @@ use serde_json::Value;
 use crate::measurement::{Channel, Measurement, PmSize, PmType};
 use crate::sensor::{JsonMap, ReqwestSensor, Sensor};
 
+/// PurpleAir sensor that lives on a LAN.
 #[derive(Debug)]
 pub struct LanSensor {
     url: Url,
@@ -14,6 +22,11 @@ pub struct LanSensor {
 }
 
 impl LanSensor {
+    /// Create a new LAN sensor.
+    ///
+    /// Args:
+    /// * `url`: URL of the sensor on the LAN
+    /// * `live`: Whether or not to use live (`true`) or averaged (`false`) readings.
     pub fn new<T: IntoUrl>(url: T, live: bool) -> LanSensor {
         LanSensor {
             url: url
@@ -25,18 +38,22 @@ impl LanSensor {
         }
     }
 
+    /// Create a new sensor that reads live measurements.
     pub fn new_live_sensor<T: IntoUrl>(addr: T) -> LanSensor {
         LanSensor::new(addr, true)
     }
 
+    /// Create a new sensor that reads averaged measurements.
     pub fn new_average_sensor<T: IntoUrl>(addr: T) -> LanSensor {
         LanSensor::new(addr, false)
     }
 
+    /// Convert a sensor to read live sensor measurements.
     pub fn as_live(self) -> LanSensor {
         LanSensor::new_live_sensor(self.url)
     }
 
+    /// Convert a sensor to read averaged sensor measurements.
     pub fn as_average(self) -> LanSensor {
         LanSensor::new_average_sensor(self.url)
     }
@@ -62,6 +79,7 @@ impl ReqwestSensor for LanSensor {
     }
 }
 
+/// Measurement data for a LAN sensor.
 #[derive(Debug)]
 pub struct LanMeasurement {
     json: JsonMap,

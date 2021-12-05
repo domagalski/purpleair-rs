@@ -6,6 +6,7 @@ fn f_to_c(f: i64) -> f64 {
     (f as f64 - 32.0) * 5.0 / 9.0
 }
 
+/// Particulate Mass size.
 #[derive(Clone, Copy, Debug, EnumIter)]
 pub enum PmSize {
     Pm0v3,
@@ -29,6 +30,7 @@ impl PmSize {
     }
 }
 
+/// Particulate Mass correction factor type.
 #[derive(Clone, Copy, Debug, EnumIter)]
 pub enum PmType {
     Atm,
@@ -44,6 +46,7 @@ impl PmType {
     }
 }
 
+/// PurpleAir sensor channel.
 #[derive(Clone, Copy, Debug, EnumIter)]
 pub enum Channel {
     A,
@@ -59,7 +62,25 @@ impl Channel {
     }
 }
 
+/// Measurement of all data from a PurpleAir sensor.
+///
+/// It is recommended to use the EPA corrections, as the PurpleAir sensors can sometimes
+/// overestimate PM 2.5 and therefore overestimate AQI. See the following paper for the EPA
+/// corrections: 
+///
+/// <https://cfpub.epa.gov/si/si_public_record_report.cfm?Lab=CEMM&dirEntryId=349513>
+///
+/// See the following for an explanation on Air Quality Index:
+///
+/// <https://en.wikipedia.org/wiki/Air_quality_index>
 pub trait Measurement {
+    /// Get the Air Quality Index (AQI) for a given PM 2.5 value.
+    ///
+    /// Args:
+    /// * `pm_2v5`: The PM 2.5 value to use to determine the AQI.
+    ///
+    /// Returns:
+    ///     AQI value from the PM 2.5 value.
     fn get_aqi(pm_2v5: f64) -> f64 {
         //NOTE: since the table on wikipedia is ambiguous to what happens at
         //jump points if there is more than a decimal of precision. Therefore,
@@ -107,26 +128,21 @@ pub trait Measurement {
         (i_high - i_low) * (pm_2v5 - c_low) / (c_high - c_low) + i_low
     }
 
-    ///
     /// Run the EPA correction on purpleair sensors
     ///
-    ///  Ref:
-    ///     - https://cfpub.epa.gov/si/si_public_record_report.cfm?Lab=CEMM&dirEntryId=349513
+    /// Ref: <https://cfpub.epa.gov/si/si_public_record_report.cfm?Lab=CEMM&dirEntryId=349513>
     ///
     /// Note:
     ///     This doesn't run the 1-hour averages that are recommended as the
     ///     measurement class only deals with current readings.
     ///
-    /// Note:
-    ///     The web sensor has the possibility of null-values.
-    ///
     /// Args:
-    ///     pm2v5_cf_1_a: (float) Channel A reading of pm2.5 concentration with CF 1
-    ///     pm2v5_cf_1_b: (float) Channel B reading of pm2.5 concentration with CF 1
-    ///     humidity: (float) Current humidity measured by the sensor.
+    /// * `pm2v5_cf_1_a`: Channel A reading of pm2.5 concentration with CF 1
+    /// * `pm2v5_cf_1_b`: Channel B reading of pm2.5 concentration with CF 1
+    /// * `humidity`: Current humidity measured by the sensor.
     ///
     /// Returns:
-    ///    corrected pm2.5 value
+    ///     Corrected pm2.5 value
     fn get_epa_correction(pm2v5_cf_1_a: f64, pm2v5_cf_1_b: f64, humidity: i64) -> f64 {
         // Using the equation on page 8 of the EPA report pdf
         // constants on that page are different than at the end for some reason.
@@ -136,6 +152,10 @@ pub trait Measurement {
         (0.0 as f64).max(0.52 * pm2v5_mean - 0.085 * (humidity as f64) + 5.71)
     }
 
+    /// Get the EPA correction for the PM 2.5 values from the measurement reading.
+    ///
+    /// Note:
+    ///     The web sensor has the possibility of null-values.
     fn pm_2v5_epa_correction(&self) -> Option<f64> {
         let pm_2v5_cf_1: Vec<f64> = Channel::iter()
             .map(|ch| self.particulate_mass(PmSize::Pm2v5, PmType::Cf1, ch))
@@ -154,6 +174,10 @@ pub trait Measurement {
         ))
     }
 
+    /// Get the EPA-corrected AQI from the measurement reading.
+    ///
+    /// Note:
+    ///     The web sensor has the possibility of null-values.
     fn pm_2v5_aqi_epa(&self) -> Option<f64> {
         match self.pm_2v5_epa_correction() {
             Some(value) => Some(Self::get_aqi(value)),
@@ -161,39 +185,70 @@ pub trait Measurement {
         }
     }
 
+    /// The ID of the PurpleAir Sensor.
     fn sensor_id(&self) -> String;
 
+    /// The timestamp of the measurement reading.
     fn timestamp(&self) -> DateTime<Utc>;
 
+    /// The latitude of the sensor.
     fn latitude(&self) -> f64;
 
+    /// The longitude of the sensor.
     fn longitude(&self) -> f64;
 
+    /// Whether the sensor is inside/outside.
     fn place(&self) -> String;
 
+    /// Wi-Fi RSSI value (dBm).
     fn rssi(&self) -> i64;
 
+    /// Sensor uptime in seconds.
     fn uptime(&self) -> u64;
 
+    /// Sensor temperature in Fahrenheit.
     fn temp_f(&self) -> i64;
 
+    /// Sensor temperature in Celsius.
     fn temp_c(&self) -> f64 {
         f_to_c(self.temp_f())
     }
 
+    /// Sensor humidity.
     fn humidity(&self) -> i64;
 
+    /// Sensor dew point in Fahrenheit.
     fn dew_point_f(&self) -> i64;
 
+    /// Sensor dew point in Celsius.
     fn dew_point_c(&self) -> f64 {
         f_to_c(self.dew_point_f())
     }
 
+    /// Sensor pressure in in millibars.
     fn pressure(&self) -> f64;
 
+    /// PM 2.5 AQI for a sensor channel.
     fn pm_2v5_aqi(&self, channel: Channel) -> Option<f64>;
 
+    /// Get the Particulate Mass (PM) for a particle size.
+    ///
+    /// Args:
+    /// * `pm_size`: The particle size for the PM value.
+    /// * `pm_type`: The PM correction factor (ATM, CF=1).
+    /// * `channel`: The PurpleAir sensor channel.
+    ///
+    /// Note:
+    ///     The web sensor has the possibility of null-values.
     fn particulate_mass(&self, pm_size: PmSize, pm_type: PmType, channel: Channel) -> Option<f64>;
 
+    /// Get the Particle Count for a particle size.
+    ///
+    /// Args:
+    /// * `pm_size`: The particle size for the PM value.
+    /// * `channel`: The PurpleAir sensor channel.
+    ///
+    /// Note:
+    ///     The web sensor has the possibility of null-values.
     fn particle_count(&self, pm_size: PmSize, channel: Channel) -> Option<f64>;
 }

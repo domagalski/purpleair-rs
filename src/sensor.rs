@@ -11,7 +11,9 @@ pub trait ReqwestSensor {
     fn construct_url(&self) -> Url;
 }
 
+/// PurpleAir sensor abstraction.
 pub trait Sensor: ReqwestSensor {
+    /// Read a measurement from the PurpleAir sensor.
     fn get_measurement(&self) -> RqResult<Self::Measurement> {
         let url = self.construct_url();
         let json = blocking::get(url)?.json::<JsonMap>()?;
